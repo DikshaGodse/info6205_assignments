@@ -36,7 +36,7 @@ public class Main {
             timeList.add(time);
 
 
-            System.out.println("cutoff：" + (ParSort.cutoff) + "\t\t10times Time:" + time + "ms");
+            System.out.println("cutoff:" + (ParSort.cutoff) + "\t\t10times Time:" + time + "ms");
 
         }
         try {
