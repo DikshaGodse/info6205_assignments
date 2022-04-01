@@ -1,89 +1,58 @@
 package edu.neu.coe.info6205.sort.par;
 
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
-
 /**
  * This code has been fleshed out by Ziyao Qiao. Thanks very much.
  * TODO tidy it up a bit.
  */
-public class Main {
+class ParSort {
 
-    public static void main(String[] args) {
-        processArgs(args);
-        System.out.println("Degree of parallelism: " + ForkJoinPool.getCommonPoolParallelism());
-        Random random = new Random();
-        int[] array = new int[2000000];
-        ArrayList<Long> timeList = new ArrayList<>();
-        for (int j = 50; j < 100; j++) {
-            ParSort.cutoff = 10000 * (j + 1);
-            // for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
-            long time;
-            long startTime = System.currentTimeMillis();
-            for (int t = 0; t < 10; t++) {
-                for (int i = 0; i < array.length; i++) array[i] = random.nextInt(10000000);
-                ParSort.sort(array, 0, array.length);
-            }
-            long endTime = System.currentTimeMillis();
-            time = (endTime - startTime);
-            timeList.add(time);
+    public static int cutoff = 1000;
+    public static int thread_count = 8;
+    public static ForkJoinPool thread_Pool = new ForkJoinPool(thread_count);
 
+    public static void sort(int[] array, int from, int to) {
+        if (to - from < cutoff) Arrays.sort(array, from, to);
+        else {
+            // FIXME next few lines should be removed from public repo.
+            CompletableFuture<int[]> parsort1 = parsort(array, from, from + (to - from) / 2); // TO IMPLEMENT
+            CompletableFuture<int[]> parsort2 = parsort(array, from + (to - from) / 2, to); // TO IMPLEMENT
+            CompletableFuture<int[]> parsort = parsort1.thenCombine(parsort2, (xs1, xs2) -> {
+                int[] result = new int[xs1.length + xs2.length];
+                // TO IMPLEMENT
+                int i = 0;
+                int j = 0;
+                for (int k = 0; k < result.length; k++) {
+                    if (i >= xs1.length) {
+                        result[k] = xs2[j++];
+                    } else if (j >= xs2.length) {
+                        result[k] = xs1[i++];
+                    } else if (xs2[j] < xs1[i]) {
+                        result[k] = xs2[j++];
+                    } else {
+                        result[k] = xs1[i++];
+                    }
+                }
+                return result;
+            });
 
-            System.out.println("cutoff:" + (ParSort.cutoff) + "\t\t10times Time:" + time + "ms");
-
-        }
-        try {
-            FileOutputStream fis = new FileOutputStream("./src/result.csv");
-            OutputStreamWriter isr = new OutputStreamWriter(fis);
-            BufferedWriter bw = new BufferedWriter(isr);
-            int j = 0;
-            for (long i : timeList) {
-                String content = (double) 10000 * (j + 1) / 2000000 + "," + (double) i / 10 + "\n";
-                j++;
-                bw.write(content);
-                bw.flush();
-            }
-            bw.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
+            parsort.whenComplete((result, throwable) -> System.arraycopy(result, 0, array, from, result.length));
+//            System.out.println("# threads: "+ ForkJoinPool.commonPool().getRunningThreadCount());
+            parsort.join();
         }
     }
 
-    private static void processArgs(String[] args) {
-        String[] xs = args;
-        while (xs.length > 0)
-            if (xs[0].startsWith("-")) xs = processArg(xs);
+    private static CompletableFuture<int[]> parsort(int[] array, int from, int to) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    int[] result = new int[to - from];
+                    // TO IMPLEMENT
+                    System.arraycopy(array, from, result, 0, result.length);
+                    sort(result, 0, to - from);
+                    return result;
+                }
+        );
     }
-
-    private static String[] processArg(String[] xs) {
-        String[] result = new String[0];
-        System.arraycopy(xs, 2, result, 0, xs.length - 2);
-        processCommand(xs[0], xs[1]);
-        return result;
-    }
-
-    private static void processCommand(String x, String y) {
-        if (x.equalsIgnoreCase("N")) setConfig(x, Integer.parseInt(y));
-        else
-            // TODO sort this out
-            if (x.equalsIgnoreCase("P")) //noinspection ResultOfMethodCallIgnored
-                ForkJoinPool.getCommonPoolParallelism();
-    }
-
-    private static void setConfig(String x, int i) {
-        configuration.put(x, i);
-    }
-
-    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-    private static final Map<String, Integer> configuration = new HashMap<>();
-
-
 }
